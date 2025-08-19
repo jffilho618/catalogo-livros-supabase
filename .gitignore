@@ -11,3 +11,4 @@ yarn-error.log
 # Arquivos de build e de sistema
 dist/
 .DS_Store
+g
