@@ -19,20 +19,25 @@ const searchTerm = ref('');
 const activeFilter = ref('Mais Relevantes');
 const filters = ['Mais Relevantes', 'Mais Recentes', 'Ordem Alfabética'];
 
-// --- Carregar Livros da API ---
+// NOVO: Estado para controlar se o usuário está logado
+const isLoggedIn = ref(false);
+
+// --- Carregar Livros da API (Rota Pública) ---
 const fetchBooks = async () => {
   try {
-    const response = await apiClient.get('/books');
+    const response = await apiClient.get('/public/books');
     allBooks.value = response.data;
   } catch (error) {
     console.error('Erro ao buscar livros:', error);
-    if (error.response && error.response.status === 401) {
-      handleLogout();
-    }
   }
 };
 
-onMounted(fetchBooks);
+// --- Verifica o estado de login e carrega os livros ao montar ---
+onMounted(() => {
+  const token = localStorage.getItem('authToken');
+  isLoggedIn.value = !!token; // Converte a existência do token para true/false
+  fetchBooks();
+});
 
 // --- Lógica de Filtro ---
 const filteredBooks = computed(() => {
@@ -55,7 +60,19 @@ const filteredBooks = computed(() => {
   return books;
 });
 
-// --- Funções CRUD com API ---
+// --- Funções de Navegação e CRUD ---
+const goToAddBook = () => {
+    if (isLoggedIn.value) {
+        openModal();
+    } else {
+        router.push('/login'); // Redireciona para o login se não estiver autenticado
+    }
+};
+
+const goToLogin = () => {
+    router.push('/login');
+};
+
 const openModal = (bookToEdit = null) => {
   book.value = bookToEdit ? { ...bookToEdit } : {};
   bookDialog.value = true;
@@ -63,10 +80,8 @@ const openModal = (bookToEdit = null) => {
 
 const saveBook = async () => {
   if (!book.value.title || !book.value.author) {
-    alert('Erro: Título e autor são campos obrigatórios.');
-    return;
+    return alert('Título e autor são obrigatórios.');
   }
-
   try {
     if (book.value.id) {
       await apiClient.put(`/books/${book.value.id}`, book.value);
@@ -97,7 +112,8 @@ const deleteBook = async (bookId) => {
 // --- Logout ---
 const handleLogout = () => {
   localStorage.removeItem('authToken');
-  router.push('/');
+  isLoggedIn.value = false;
+  window.location.reload();
 };
 </script>
 
@@ -114,8 +130,9 @@ const handleLogout = () => {
                 <h2>Lumina</h2>
             </div>
             <div class="header-actions">
-                <button class="add-book-btn-header" @click="openModal()">+ Adicionar Livro</button>
-                <button class="logout-btn" @click="handleLogout">Sair</button>
+                <button class="add-book-btn-header" @click="goToAddBook">+ Adicionar Livro</button>
+                <button v-if="isLoggedIn" class="logout-btn" @click="handleLogout">Sair</button>
+                <button v-else class="login-btn" @click="goToLogin">Logar</button>
             </div>
         </div>
     </header>
@@ -131,7 +148,6 @@ const handleLogout = () => {
           <form class="search-form" @submit.prevent>
             <input type="search" v-model="searchTerm" placeholder="Busque por título ou autor">
             <button type="submit">
-              <!-- SVG CORRIGIDO ABAIXO -->
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             </button>
           </form>
@@ -155,7 +171,7 @@ const handleLogout = () => {
           </div>
           <div class="book-grid">
             <div v-for="b in filteredBooks" :key="b.id" class="book-card">
-              <div class="book-card-actions">
+              <div v-if="isLoggedIn" class="book-card-actions">
                   <button class="action-btn edit-btn" @click="openModal(b)">
                       <i class="pi pi-pencil"></i>
                   </button>
@@ -202,6 +218,19 @@ const handleLogout = () => {
 </template>
 
 <style scoped>
+/* Adicione este estilo para o novo botão de login */
+.login-btn {
+    background-color: #f1f1f1;
+    color: #333;
+    border: 1px solid #ccc;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.login-btn:hover { background-color: #e0e0e0; }
+
 /* ESTILOS GLOBAIS DA PÁGINA */
 .page-wrapper { background-color: #f4f4f4; color: #333; }
 .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }

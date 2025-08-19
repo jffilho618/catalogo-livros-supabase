@@ -3,34 +3,23 @@ import LoginView from '@/views/LoginView.vue'
 import CatalogView from '@/views/CatalogView.vue'
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [
-    {
-      path: '/',
-      name: 'login',
-      component: LoginView
-    },
-    {
-      path: '/catalog',
-      name: 'catalog',
-      component: CatalogView,
-      meta: { requiresAuth: true } // Marca esta rota como protegida
-    }
-  ]
+history: createWebHistory(import.meta.env.BASE_URL),
+routes: [
+{
+// A rota principal agora é o catálogo
+path: '/',
+name: 'catalog',
+component: CatalogView
+},
+{
+// A rota de login agora é /login
+path: '/login',
+name: 'login',
+component: LoginView
+}
+]
 })
 
-// Adiciona a "guarda de navegação" para proteger rotas
-router.beforeEach((to, from, next) => {
-  const isLoggedIn = !!localStorage.getItem('authToken'); // Verifica se o token existe
-
-  if (to.meta.requiresAuth && !isLoggedIn) {
-    // Se a rota requer autenticação e o usuário não está logado,
-    // redireciona para a página de login.
-    next({ name: 'login' });
-  } else {
-    // Caso contrário, permite o acesso.
-    next();
-  }
-});
+// O router.beforeEach foi removido, pois a rota de catálogo agora é pública.
 
 export default router

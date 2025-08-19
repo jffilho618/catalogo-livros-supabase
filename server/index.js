@@ -18,13 +18,20 @@ const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 //============================================
+// ROTA PÚBLICA
+//============================================
+app.get('/api/public/books', async (req, res) => {
+  const { data, error } = await supabase.from('books').select('*');
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(200).json(data);
+});
+
+//============================================
 // ROTAS DE AUTENTICAÇÃO
 //============================================
 app.post('/api/auth/signup', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
-  }
+  if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) return res.status(400).json({ error: error.message });
   res.status(201).json({ user: data.user, message: 'Usuário criado com sucesso.' });
@@ -32,9 +39,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
-  }
+  if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return res.status(401).json({ error: 'Credenciais inválidas.' });
   res.status(200).json({ user: data.user, session: data.session });
@@ -67,26 +72,10 @@ app.get('/api/books', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/books', authMiddleware, async (req, res) => {
-  // --- LINHA ADICIONADA PARA DEBUG ---
-  console.log('Recebido para criar livro:', req.body); 
-
   const { title, author, year, image } = req.body;
-  const userId = req.user.id;
-
-  if (!title || !author) {
-    return res.status(400).json({ error: 'Título e autor são obrigatórios.' });
-  }
-
-  const { data, error } = await supabase
-    .from('books')
-    .insert([{ title, author, year, image, user_id: userId }])
-    .select();
-
-  if (error) {
-    console.error('Erro do Supabase ao inserir:', error);
-    return res.status(400).json({ error: error.message });
-  }
-
+  if (!title || !author) return res.status(400).json({ error: 'Título e autor são obrigatórios.' });
+  const { data, error } = await supabase.from('books').insert([{ title, author, year, image, user_id: req.user.id }]).select();
+  if (error) return res.status(400).json({ error: error.message });
   res.status(201).json(data[0]);
 });
 
@@ -108,4 +97,3 @@ app.delete('/api/books/:id', authMiddleware, async (req, res) => {
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
 });
-

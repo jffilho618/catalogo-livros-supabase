@@ -3,39 +3,34 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
-import apiClient from '@/api'; // Importa nosso novo módulo de API
+import apiClient from '@/api';
 
 const email = ref('');
 const password = ref('');
 const router = useRouter();
-const errorMessage = ref(''); // Para mostrar erros de login
+const errorMessage = ref('');
 
 const handleLogin = async () => {
-  errorMessage.value = ''; // Limpa erros antigos
+  errorMessage.value = '';
   if (!email.value || !password.value) {
     errorMessage.value = 'Por favor, preencha o email e a senha.';
     return;
   }
 
   try {
-    // Chama o endpoint de login do nosso back-end
     const response = await apiClient.post('/auth/login', {
       email: email.value,
       password: password.value,
     });
 
-    // Se o login for bem-sucedido, a API retorna a sessão com o token
     const token = response.data.session.access_token;
-
-    // Salva o token no localStorage do navegador para ser usado depois
     localStorage.setItem('authToken', token);
 
-    // Redireciona para a página do catálogo
-    router.push('/catalog');
+    // Redireciona para a página do catálogo, que agora é a rota principal '/'
+    router.push('/');
 
   } catch (error) {
-    // Se a API retornar um erro (ex: credenciais inválidas)
-    console.error('Erro no login:', error.response.data);
+    console.error('Erro no login:', error.response?.data);
     errorMessage.value = 'Email ou senha inválidos. Tente novamente.';
   }
 };
@@ -71,7 +66,6 @@ const handleLogin = async () => {
           </span>
         </div>
         
-        <!-- Mensagem de erro -->
         <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
         <Button type="submit" label="Entrar" class="p-button-primary" />
@@ -81,7 +75,6 @@ const handleLogin = async () => {
 </template>
 
 <style scoped>
-/* ... (os estilos continuam os mesmos) ... */
 .login-page { height: 100vh; margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; }
 .bg { animation: slide 3s ease-in-out infinite alternate; background-image: linear-gradient(-60deg, #55C595 50%, #007BFF 50%); bottom: 0; left: -50%; opacity: .5; position: fixed; right: -50%; top: 0; z-index: -1; }
 .bg2 { animation-direction: alternate-reverse; animation-duration: 4s; }
