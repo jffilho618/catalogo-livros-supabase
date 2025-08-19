@@ -72,16 +72,20 @@ app.get('/api/books', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/books', authMiddleware, async (req, res) => {
-  const { title, author, year, image } = req.body;
+  // ATUALIZADO: Adicionado 'pages'
+  const { title, author, year, image, pages } = req.body;
   if (!title || !author) return res.status(400).json({ error: 'Título e autor são obrigatórios.' });
-  const { data, error } = await supabase.from('books').insert([{ title, author, year, image, user_id: req.user.id }]).select();
+  // ATUALIZADO: Adicionado 'pages' ao objeto de inserção
+  const { data, error } = await supabase.from('books').insert([{ title, author, year, image, pages, user_id: req.user.id }]).select();
   if (error) return res.status(400).json({ error: error.message });
   res.status(201).json(data[0]);
 });
 
 app.put('/api/books/:id', authMiddleware, async (req, res) => {
-    const { title, author, year, image } = req.body;
-    const { data, error } = await supabase.from('books').update({ title, author, year, image }).eq('id', req.params.id).eq('user_id', req.user.id).select();
+    // ATUALIZADO: Adicionado 'pages'
+    const { title, author, year, image, pages } = req.body;
+    // ATUALIZADO: Adicionado 'pages' ao objeto de atualização
+    const { data, error } = await supabase.from('books').update({ title, author, year, image, pages }).eq('id', req.params.id).eq('user_id', req.user.id).select();
     if (error) return res.status(400).json({ error: error.message });
     if (!data || data.length === 0) return res.status(404).json({ error: 'Livro não encontrado ou não autorizado.' });
     res.status(200).json(data[0]);

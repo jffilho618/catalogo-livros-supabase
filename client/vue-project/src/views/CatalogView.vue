@@ -2,14 +2,17 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import apiClient from '@/api';
+import { useToast } from 'primevue/usetoast'; // ATUALIZADO: Importar o hook de Toast
 
 // Importando componentes do PrimeVue
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
 import InputNumber from 'primevue/inputnumber';
+import Toast from 'primevue/toast'; // ATUALIZADO: Importar o componente Toast
 
 const router = useRouter();
+const toast = useToast(); // ATUALIZADO: Inicializar o serviço de Toast
 
 // --- Estado Reativo ---
 const allBooks = ref([]);
@@ -18,24 +21,21 @@ const book = ref({});
 const searchTerm = ref('');
 const activeFilter = ref('Mais Relevantes');
 const filters = ['Mais Relevantes', 'Mais Recentes', 'Ordem Alfabética'];
-
-// NOVO: Estado para controlar se o usuário está logado
 const isLoggedIn = ref(false);
 
-// --- Carregar Livros da API (Rota Pública) ---
+// --- Carregar Livros da API ---
 const fetchBooks = async () => {
   try {
     const response = await apiClient.get('/public/books');
     allBooks.value = response.data;
   } catch (error) {
     console.error('Erro ao buscar livros:', error);
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Não foi possível carregar os livros.', life: 3000 });
   }
 };
 
-// --- Verifica o estado de login e carrega os livros ao montar ---
 onMounted(() => {
-  const token = localStorage.getItem('authToken');
-  isLoggedIn.value = !!token; // Converte a existência do token para true/false
+  isLoggedIn.value = !!localStorage.getItem('authToken');
   fetchBooks();
 });
 
@@ -50,28 +50,19 @@ const filteredBooks = computed(() => {
     );
   }
   switch (activeFilter.value) {
-    case 'Mais Recentes':
-      books.sort((a, b) => b.year - a.year);
-      break;
-    case 'Ordem Alfabética':
-      books.sort((a, b) => a.title.localeCompare(b.title));
-      break;
+    case 'Mais Recentes': books.sort((a, b) => b.year - a.year); break;
+    case 'Ordem Alfabética': books.sort((a, b) => a.title.localeCompare(b.title)); break;
   }
   return books;
 });
 
 // --- Funções de Navegação e CRUD ---
 const goToAddBook = () => {
-    if (isLoggedIn.value) {
-        openModal();
-    } else {
-        router.push('/login'); // Redireciona para o login se não estiver autenticado
-    }
+    if (isLoggedIn.value) openModal();
+    else router.push('/login');
 };
 
-const goToLogin = () => {
-    router.push('/login');
-};
+const goToLogin = () => router.push('/login');
 
 const openModal = (bookToEdit = null) => {
   book.value = bookToEdit ? { ...bookToEdit } : {};
@@ -80,36 +71,37 @@ const openModal = (bookToEdit = null) => {
 
 const saveBook = async () => {
   if (!book.value.title || !book.value.author) {
-    return alert('Título e autor são obrigatórios.');
+    toast.add({ severity: 'warn', summary: 'Atenção', detail: 'Título e autor são obrigatórios.', life: 3000 });
+    return;
   }
   try {
-    if (book.value.id) {
+    const isEditing = !!book.value.id;
+    if (isEditing) {
       await apiClient.put(`/books/${book.value.id}`, book.value);
     } else {
       await apiClient.post('/books', book.value);
     }
     bookDialog.value = false;
     fetchBooks();
+    toast.add({ severity: 'success', summary: 'Sucesso', detail: `Livro ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`, life: 3000 });
   } catch (error) {
-    console.error('Falha ao salvar o livro:', error);
     const errorMessage = error.response?.data?.error || 'Não foi possível conectar ao servidor.';
-    alert(`Erro ao salvar o livro: ${errorMessage}`);
+    toast.add({ severity: 'error', summary: 'Erro ao Salvar', detail: errorMessage, life: 3000 });
   }
 };
 
 const deleteBook = async (bookId) => {
-    if (confirm('Tem certeza que deseja excluir este livro?')) {
+    if (confirm('Tem certeza que deseja excluir este livro?')) { // confirm() ainda é aceitável para deleção
         try {
             await apiClient.delete(`/books/${bookId}`);
             fetchBooks();
+            toast.add({ severity: 'info', summary: 'Deletado', detail: 'O livro foi removido.', life: 3000 });
         } catch (error) {
-            console.error('Erro ao deletar livro:', error);
-            alert('Não foi possível deletar o livro.');
+            toast.add({ severity: 'error', summary: 'Erro ao Deletar', detail: 'Não foi possível remover o livro.', life: 3000 });
         }
     }
 };
 
-// --- Logout ---
 const handleLogout = () => {
   localStorage.removeItem('authToken');
   isLoggedIn.value = false;
@@ -119,6 +111,9 @@ const handleLogout = () => {
 
 <template>
   <div class="page-wrapper">
+    <!-- ATUALIZADO: Adicionado o componente Toast -->
+    <Toast />
+
     <header class="main-header">
         <div class="header-content">
             <div class="logo-container">
@@ -172,17 +167,14 @@ const handleLogout = () => {
           <div class="book-grid">
             <div v-for="b in filteredBooks" :key="b.id" class="book-card">
               <div v-if="isLoggedIn" class="book-card-actions">
-                  <button class="action-btn edit-btn" @click="openModal(b)">
-                      <i class="pi pi-pencil"></i>
-                  </button>
-                  <button class="action-btn delete-btn" @click="deleteBook(b.id)">
-                      <i class="pi pi-trash"></i>
-                  </button>
+                  <button class="action-btn edit-btn" @click="openModal(b)"><i class="pi pi-pencil"></i></button>
+                  <button class="action-btn delete-btn" @click="deleteBook(b.id)"><i class="pi pi-trash"></i></button>
               </div>
               <img :src="b.image" :alt="'Capa do livro ' + b.title" @error="event => event.target.src='https://placehold.co/200x300/ccc/fff?text=Imagem+Inválida'">
               <h3>{{ b.title }}</h3>
               <p class="author">{{ b.author }}</p>
-              <p class="year">{{ b.year }}</p>
+              <!-- ATUALIZADO: Exibindo a quantidade de páginas -->
+              <p class="year">{{ b.year }} <span v-if="b.pages"> - {{ b.pages }} pág.</span></p>
             </div>
           </div>
           <div v-if="filteredBooks.length === 0" class="no-results">
@@ -192,6 +184,7 @@ const handleLogout = () => {
       </section>
     </main>
 
+    <!-- ATUALIZADO: Modal com campo de páginas -->
     <Dialog v-model:visible="bookDialog" modal :header="book.id ? 'Editar Livro' : 'Adicionar Novo Livro'" :style="{ width: '500px' }">
         <div class="form-group">
             <label for="bookTitle">Título do Livro</label>
@@ -201,9 +194,15 @@ const handleLogout = () => {
             <label for="bookAuthor">Autor</label>
             <InputText id="bookAuthor" v-model="book.author" />
         </div>
-        <div class="form-group">
-            <label for="bookYear">Ano de Publicação</label>
-            <InputNumber id="bookYear" v-model="book.year" :useGrouping="false" />
+        <div class="form-group-inline">
+            <div class="form-group">
+                <label for="bookYear">Ano</label>
+                <InputNumber id="bookYear" v-model="book.year" :useGrouping="false" />
+            </div>
+            <div class="form-group">
+                <label for="bookPages">Páginas</label>
+                <InputNumber id="bookPages" v-model="book.pages" />
+            </div>
         </div>
         <div class="form-group">
             <label for="bookImage">URL da Imagem da Capa</label>
@@ -218,23 +217,20 @@ const handleLogout = () => {
 </template>
 
 <style scoped>
-/* Adicione este estilo para o novo botão de login */
-.login-btn {
-    background-color: #f1f1f1;
-    color: #333;
-    border: 1px solid #ccc;
-    padding: 10px 20px;
-    border-radius: 5px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s;
+/* ATUALIZADO: Estilos para o formulário inline */
+.form-group-inline {
+    display: flex;
+    gap: 1rem;
 }
-.login-btn:hover { background-color: #e0e0e0; }
+.form-group-inline .form-group {
+    flex: 1;
+}
 
-/* ESTILOS GLOBAIS DA PÁGINA */
+/* ... (o resto dos estilos continua o mesmo) ... */
+.login-btn { background-color: #f1f1f1; color: #333; border: 1px solid #ccc; padding: 10px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; transition: background-color 0.3s; }
+.login-btn:hover { background-color: #e0e0e0; }
 .page-wrapper { background-color: #f4f4f4; color: #333; }
 .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
-/* CABEÇALHO FIXO */
 .main-header { background-color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); padding: 0 20px; position: sticky; top: 0; z-index: 100; height: 70px; }
 .header-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; height: 100%; }
 .logo-container { display: flex; align-items: center; gap: 10px; }
@@ -244,7 +240,6 @@ const handleLogout = () => {
 .add-book-btn-header:hover { background-color: #0056b3; }
 .logout-btn { background: none; border: 1px solid #ccc; color: #555; padding: 10px 20px; border-radius: 5px; cursor: pointer; transition: all 0.3s; }
 .logout-btn:hover { background-color: #f1f1f1; color: #333; }
-/* SEÇÃO HERO E FUNDO ANIMADO */
 .hero-section { position: relative; overflow: hidden; z-index: 1; }
 .bg { animation: slide 3s ease-in-out infinite alternate; background-image: linear-gradient(-60deg, #6c3 50%, #09f 50%); bottom: 0; left: -50%; opacity: .5; position: absolute; right: -50%; top: 0; z-index: -1; }
 .bg2 { animation-direction: alternate-reverse; animation-duration: 4s; }
@@ -260,7 +255,6 @@ const handleLogout = () => {
 .toggle-filters { margin-top: 25px; display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
 .toggle-filter { background: rgba(255, 255, 255, 0.2); border: 1px solid #fff; color: #fff; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: background-color 0.3s, color 0.3s; backdrop-filter: blur(2px); }
 .toggle-filter.active { background-color: #fff; color: #09f; font-weight: bold; }
-/* SEÇÃO DO CATÁLOGO */
 .catalog-section { padding: 50px 0; }
 .catalog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .results-info { color: #666; }
@@ -272,7 +266,6 @@ const handleLogout = () => {
 .book-card h3 { font-size: 1rem; margin-bottom: 5px; color: #333; height: 40px; overflow: hidden; }
 .book-card .author, .book-card .year { font-size: 0.85rem; color: #777; }
 .no-results { text-align: center; padding: 40px; color: #777; }
-/* Ações de Editar/Deletar no Card */
 .book-card-actions { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; background: rgba(255,255,255,0.8); backdrop-filter: blur(4px); border-radius: 20px; padding: 5px; opacity: 0; transition: opacity 0.3s ease; }
 .action-btn { background: none; border: none; cursor: pointer; padding: 5px; display: flex; align-items: center; justify-content: center; border-radius: 50%; width: 30px; height: 30px; transition: background-color 0.2s; }
 .action-btn i { font-size: 0.9rem; }
@@ -280,7 +273,6 @@ const handleLogout = () => {
 .edit-btn:hover { background-color: #e6f2ff; }
 .delete-btn { color: #DC3545; }
 .delete-btn:hover { background-color: #fde8e8; }
-/* ESTILOS DO MODAL */
 .form-group { margin-bottom: 1rem; }
 .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
 .form-group .p-inputtext, .form-group .p-inputnumber { width: 100%; }

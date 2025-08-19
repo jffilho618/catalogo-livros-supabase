@@ -4,16 +4,18 @@ import { useRouter } from 'vue-router';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import apiClient from '@/api';
+import { useToast } from 'primevue/usetoast'; // 1. Importar o hook de Toast
+import Toast from 'primevue/toast';         // 2. Importar o componente Toast
 
 const email = ref('');
 const password = ref('');
 const router = useRouter();
-const errorMessage = ref('');
+const toast = useToast(); // 3. Inicializar o serviço de Toast
 
 const handleLogin = async () => {
-  errorMessage.value = '';
   if (!email.value || !password.value) {
-    errorMessage.value = 'Por favor, preencha o email e a senha.';
+    // 4. Substituir o errorMessage por um toast de aviso
+    toast.add({ severity: 'warn', summary: 'Atenção', detail: 'Por favor, preencha o email e a senha.', life: 3000 });
     return;
   }
 
@@ -25,19 +27,29 @@ const handleLogin = async () => {
 
     const token = response.data.session.access_token;
     localStorage.setItem('authToken', token);
+    
+    // 5. Adicionar um toast de sucesso antes de redirecionar
+    toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Login realizado com sucesso!', life: 2000 });
 
-    // Redireciona para a página do catálogo, que agora é a rota principal '/'
-    router.push('/');
+    // Adiciona um pequeno delay para o usuário ver a mensagem antes do redirecionamento
+    setTimeout(() => {
+        router.push('/');
+    }, 1000);
 
   } catch (error) {
     console.error('Erro no login:', error.response?.data);
-    errorMessage.value = 'Email ou senha inválidos. Tente novamente.';
+    // 6. Substituir o errorMessage por um toast de erro
+    const detail = error.response?.data?.error || 'Credenciais inválidas. Tente novamente.';
+    toast.add({ severity: 'error', summary: 'Falha no Login', detail: detail, life: 3000 });
   }
 };
 </script>
 
 <template>
   <div class="login-page">
+    <!-- 7. Adicionar o componente Toast ao template -->
+    <Toast />
+
     <div class="bg"></div>
     <div class="bg bg2"></div>
     <div class="bg bg3"></div>
@@ -66,7 +78,7 @@ const handleLogin = async () => {
           </span>
         </div>
         
-        <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+        <!-- A mensagem de erro em texto foi removida -->
 
         <Button type="submit" label="Entrar" class="p-button-primary" />
       </form>
@@ -75,6 +87,7 @@ const handleLogin = async () => {
 </template>
 
 <style scoped>
+/* Os estilos permanecem exatamente os mesmos */
 .login-page { height: 100vh; margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; }
 .bg { animation: slide 3s ease-in-out infinite alternate; background-image: linear-gradient(-60deg, #55C595 50%, #007BFF 50%); bottom: 0; left: -50%; opacity: .5; position: fixed; right: -50%; top: 0; z-index: -1; }
 .bg2 { animation-direction: alternate-reverse; animation-duration: 4s; }
@@ -89,5 +102,4 @@ const handleLogin = async () => {
 .p-field .p-input-icon-left > .p-inputtext { width: 100%; padding-left: 3rem !important; }
 .p-button-primary { padding: 0.75rem; font-weight: 600; background-color: var(--primary-color) !important; border: none !important; }
 .p-button-primary:hover { background-color: var(--primary-color-dark) !important; }
-.error-message { color: #D32F2F; font-size: 0.9rem; margin: -0.5rem 0 0 0; }
 </style>
